@@ -282,6 +282,7 @@
     <script>
         
         const WEBHOOK_URL = 'https://mardanli.app.n8n.cloud/webhook/auto-part-scan';
+        const N8N_DEMO_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwNzBlNzhlOS0zMmFmLTQxZjAtODc3Ny00MmQ1M2NmOWJiNWYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYyNzM5MTUyfQ.7B8WEP7iMSzGh03bLYaLGEbsgO8ayB7ZrrAFOgfmhSg';
 
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
@@ -364,8 +365,8 @@
   const res = await fetch(url, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'x-demo-key': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwNzBlNzhlOS0zMmFmLTQxZjAtODc3Ny00MmQ1M2NmOWJiNWYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYyNzM5MTUyfQ.7B8WEP7iMSzGh03bLYaLGEbsgO8ayB7ZrrAFOgfmhSg',
+        'Content-Type': 'application/json',
+      'x-demo-key': N8N_DEMO_KEY
     },
     body: JSON.stringify(body),
   });
