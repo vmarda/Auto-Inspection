@@ -7,7 +7,6 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#4F46E5">
     <title>Auto Repair AI</title>
-    <link rel="manifest" href="manifest.json">
     <style>
         * {
             margin: 0;
@@ -243,7 +242,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Auto Repair AI</h1>
+            <h1>🚗 Auto Repair AI</h1>
             <p>Scan car parts instantly</p>
         </div>
 
@@ -280,9 +279,8 @@
     </div>
 
     <script>
-        
+        // ⚠️ REPLACE THIS WITH YOUR N8N WEBHOOK URL
         const WEBHOOK_URL = 'https://mardanli.app.n8n.cloud/webhook/auto-part-scan';
-        const N8N_DEMO_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwNzBlNzhlOS0zMmFmLTQxZjAtODc3Ny00MmQ1M2NmOWJiNWYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYyNzM5MTUyfQ.7B8WEP7iMSzGh03bLYaLGEbsgO8ayB7ZrrAFOgfmhSg';
 
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
@@ -304,7 +302,7 @@
             try {
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: { 
-                        facingMode: 'environment', // Use back camera on mobile
+                        facingMode: 'environment',
                         width: { ideal: 1920 },
                         height: { ideal: 1080 }
                     }
@@ -320,16 +318,13 @@
 
         captureBtn.addEventListener('click', async () => {
             if (capturedImage) {
-                // Send to n8n
                 await analyzeImage();
             } else {
-                // Capture photo
                 capturePhoto();
             }
         });
 
         retakeBtn.addEventListener('click', () => {
-            // Reset to camera view
             canvas.classList.remove('active');
             video.classList.add('active');
             captureBtn.textContent = '📸 Take Photo';
@@ -339,96 +334,79 @@
         });
 
         function capturePhoto() {
-            // Set canvas size to match video
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
 
-            // Draw video frame to canvas
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0);
 
-            // Get base64 image
             capturedImage = canvas.toDataURL('image/jpeg', 0.8);
 
-            // Show captured image
             video.classList.remove('active');
             canvas.classList.add('active');
 
-            // Update buttons
             captureBtn.textContent = '🔍 Analyze Part';
             retakeBtn.style.display = 'block';
 
             showStatus('✅ Photo captured! Click "Analyze Part" to scan.', 'success');
         }
 
-        async function postJSON(url, body) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json',
-      'x-demo-key': N8N_DEMO_KEY
-    },
-    body: JSON.stringify(body),
-  });
+        async function analyzeImage() {
+            loader.classList.add('active');
+            showStatus('🔄 Analyzing part...', 'loading');
+            captureBtn.disabled = true;
+            retakeBtn.disabled = true;
 
-  // Read raw text once so we can handle non-JSON bodies safely
-  const text = await res.text();
+            try {
+                // Remove the data:image/jpeg;base64, prefix
+                const base64Image = capturedImage.split(',')[1];
 
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status} ${res.statusText}: ${text.slice(0,200)}`);
-  }
+                console.log('Sending to:', WEBHOOK_URL);
+                console.log('Image size:', base64Image.length, 'characters');
 
-  const ct = res.headers.get('content-type') || '';
-  if (!ct.includes('application/json')) {
-    throw new Error(`Non-JSON response: ${text.slice(0,200)}`);
-  }
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        image: base64Image,
+                        timestamp: new Date().toISOString()
+                    })
+                });
 
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    throw new Error(`Bad JSON: ${e.message}. Body: ${text.slice(0,200)}`);
-    }
-}
-    async function analyzeImage() {
-     if (!WEBHOOK_URL.startsWith('https://mardanli.app.n8n.cloud/webhook/auto-part-scan')) {
-     showStatus('❌ Please set your n8n Production URL', 'error');
-     return;
-     }
+                console.log('Response status:', response.status);
 
-  loader.classList.add('active');
-  showStatus('🔄 Analyzing part...', 'loading');
-  captureBtn.disabled = true;
-  retakeBtn.disabled = true;
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    throw new Error(`Server error: ${response.status}`);
+                }
 
-  try {
-    // One session per photo analyze; for your multi-step demo you can persist this
-    const sessionId = crypto.randomUUID();
+                const responseText = await response.text();
+                console.log('Response text:', responseText);
 
-    // IMPORTANT: send full data URL so n8n/OpenAI Vision can consume it as a URL
-    const payload = {
-      action: 'vision',
-      sessionId,
-      images: [capturedImage]        // keep the data URL; do NOT strip the prefix
-    };
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    console.error('JSON parse error:', e);
+                    console.error('Response was:', responseText);
+                    throw new Error('Invalid response from server');
+                }
 
-    const data = await postJSON(WEBHOOK_URL, payload);
-    displayResult(data);
-    showStatus('✅ Analysis complete!', 'success');
+                displayResult(data);
+                showStatus('✅ Analysis complete!', 'success');
 
-  } catch (error) {
-    console.error('Error:', error);
-    showStatus(`❌ Error: ${error.message}`, 'error');
-  } finally {
-    loader.classList.remove('active');
-    captureBtn.disabled = false;
-    retakeBtn.disabled = false;
-  }
-}
-
-
-
-
-
+            } catch (error) {
+                console.error('Full error:', error);
+                showStatus(`❌ ${error.message}`, 'error');
+            } finally {
+                loader.classList.remove('active');
+                captureBtn.disabled = false;
+                retakeBtn.disabled = false;
+            }
+        }
 
         function showStatus(message, type) {
             status.textContent = message;
@@ -436,13 +414,10 @@
         }
 
         function displayResult(data) {
-            // Show the result card
             result.classList.add('active');
 
             let html = `<img src="${capturedImage}" class="captured-image" alt="Captured part">`;
 
-            // Parse the AI response
-            // Adjust this based on your actual n8n output format
             if (data.partName) {
                 html += `
                     <div class="result-item">
@@ -482,23 +457,19 @@
                 `;
             }
 
-            // If response format is different, show raw data
             if (!data.partName && !data.isDamaged) {
                 html += `
                     <div class="result-item">
                         <strong>📄 AI Response</strong>
-                        <p>${JSON.stringify(data, null, 2)}</p>
+                        <pre style="white-space: pre-wrap; font-size: 14px;">${JSON.stringify(data, null, 2)}</pre>
                     </div>
                 `;
             }
 
             resultContent.innerHTML = html;
-
-            // Scroll to results
             result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
-        // Stop camera when page is closed
         window.addEventListener('beforeunload', () => {
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
@@ -507,4 +478,3 @@
     </script>
 </body>
 </html>
-
